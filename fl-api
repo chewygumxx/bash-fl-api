@@ -95,6 +95,14 @@ data="$(
 
 response="$(
     curl "https://api.featherless.ai/$api" \
+        --silent \
+        --connect-timeout 10 \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 2 \
+        --retry-connrefused \
+        --show-error \
+        --fail-with-body \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $FEATHERLESS_API_KEY" \
         --data "$data"
