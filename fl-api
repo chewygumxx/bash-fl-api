@@ -8,11 +8,68 @@
 #
 #
 
-message="${1:-"Hello ^-^, could you please tell me your name?"}"
+message="Hello ^-^, could you please tell me your name?"
+model="NousResearch/Hermes-3-Llama-3.1-8B"
+system="You are Dorothy, a warm, curious and accommodating agentic assistant."
+api="v1/chat/completions"
 
-model="${2:-"NousResearch/Hermes-3-Llama-3.1-8B"}"
-system="${3:-"You are Dorothy, a warm, curious and accommodating agentic assistant."}"
-api="${4:-"v1/chat/completions"}"
+usage() {
+    cat <<EOF
+Usage: ${0##*/} [OPTIONS] [MESSAGE]
+
+Options:
+    --model MODEL    Model identifier
+    --system PROMPT   System prompt
+    --api ENDPOINT    API endpoint
+    -h, --help        Show this help message
+EOF
+}
+
+message_set=false
+
+while (($#)); do
+    case "$1" in
+    --model | --system | --api)
+        option="${1#--}"
+
+        if (($# < 2)) || [[ -z "$2" || "$2" == --* ]]; then
+            printf 'Missing value for %s\n' "$1" >&2
+            exit 2
+        fi
+
+        printf -v "$option" '%s' "$2"
+        shift 2
+        ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    --)
+        shift
+        if (($# > 1)); then
+            printf 'Too many positional arguments\n' >&2
+            exit 2
+        fi
+        if (($# == 1)); then
+            message="$1"
+        fi
+        break
+        ;;
+    -*)
+        printf 'Unknown option: %s\n' "$1" >&2
+        exit 2
+        ;;
+    *)
+        if [[ "$message_set" == true ]]; then
+            printf 'Unexpected argument: %s\n' "$1" >&2
+            exit 2
+        fi
+        message="$1"
+        message_set=true
+        shift
+        ;;
+    esac
+done
 
 [[ -z "$FEATHERLESS_API_KEY" ]] && exit 4
 
@@ -34,9 +91,14 @@ data="$(
             }
         ]
     }'
+)" || exit
+
+response="$(
+    curl "https://api.featherless.ai/$api" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $FEATHERLESS_API_KEY" \
+        --data "$data"
 )"
 
-curl "https://api.featherless.ai/$api" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $FEATHERLESS_API_KEY" \
-    --data "$data"
+printf '%s\n' "$response" >>"./log.jsonl"
+printf '%s\n' "$response" | jq --raw-output0 '.choices.[0].message.content'

@@ -1,0 +1,23 @@
+# vim:set expandtab shiftwidth=4 filetype=toml:
+# SPDX-License-Identifier: GPL-3.0-only
+#:schema https://mise.jdx.dev/schema/mise.json
+
+#
+#
+# :/mise.toml
+#
+#
+
+min_version = "2026.9.0"
+
+[env]
+FEATHERLESS_API_KEY = "pass://pass-cli/api_featherless/apikey"
+
+[tools]
+age = "latest"
+sops = "latest"
+"aqua:jqlang/jq" = "1.8.2"
+
+[tasks.hello]
+description = "Check if responsive and available"
+run = "pass-cli run -- bash ./fl-api && jq --slurp --raw-output0 'last | .choices.[0].message.content' './log.jsonl'"
