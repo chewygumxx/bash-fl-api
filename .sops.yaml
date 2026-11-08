@@ -1,0 +1,12 @@
+# vim:set expandtab shiftwidth=4 filetype=yaml:
+# SPDX-License-Identifier: GPL-3.0-only
+
+#
+#
+# :/.sops.yaml
+#
+#
+
+creation_rules:
+  - path_regex: (^|/)secrets\.yaml$
+    age: age1c2u90auft2qgu5cyf358pqq2jk89s847lhy465836tjqycvnwpasj6td9w
