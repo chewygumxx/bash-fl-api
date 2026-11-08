@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# vim:set expandtab shiftwidth=4 filetype=bash:
+# SPDX-License-Identifier: GPL-3.0-only
+
+#
+#
+# ~/scr/featherless/fl-api
+#
+#
+
+message="${1:-"Hello ^-^, could you please tell me your name?"}"
+
+model="${2:-"NousResearch/Hermes-3-Llama-3.1-8B"}"
+system="${3:-"You are Dorothy, a warm, curious and accommodating agentic assistant."}"
+api="${4:-"v1/chat/completions"}"
+
+[[ -z "$FEATHERLESS_API_KEY" ]] && exit 4
+
+data="$(
+    jq -n \
+        --arg model "$model" \
+        --arg system "$system" \
+        --arg message "$message" \
+        '{
+        model: $model,
+        messages: [
+            {
+                role:    "system",
+                content: $system
+            },
+            {
+                role:    "user",
+                content: $message
+            }
+        ]
+    }'
+)"
+
+curl "https://api.featherless.ai/$api" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $FEATHERLESS_API_KEY" \
+--data "$data")"
