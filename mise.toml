@@ -8,16 +8,22 @@
 #
 #
 
+#
+# https://mise.jdx.dev/configuration.html
+#
+
 min_version = "2026.9.0"
 
-[env]
-FEATHERLESS_API_KEY = "pass://pass-cli/api_featherless/apikey"
-
 [tools]
+jq = "latest"
 age = "latest"
 sops = "latest"
-"aqua:jqlang/jq" = "1.8.2"
+curlie = "latest"
 
 [tasks.hello]
 description = "Check if responsive and available"
-run = "pass-cli run -- bash ./fl-api && jq --slurp --raw-output0 'last | .choices.[0].message.content' './log.jsonl'"
+run = "bash ./fl-api 'Hello, what is your name?'"
+
+[tasks.elaborate]
+description = "Elicit extensive response"
+run = "bash ./fl-api 'Please extensively elaborate upon your plans for world domination'"

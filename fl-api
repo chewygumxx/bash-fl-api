@@ -8,76 +8,102 @@
 #
 #
 
-message="Hello ^-^, could you please tell me your name?"
-model="NousResearch/Hermes-3-Llama-3.1-8B"
-system="You are Dorothy, a warm, curious and accommodating agentic assistant."
-api="v1/chat/completions"
-
 usage() {
     cat <<EOF
 Usage: ${0##*/} [OPTIONS] [MESSAGE]
 
 Options:
-    --model MODEL    Model identifier
-    --system PROMPT   System prompt
-    --api ENDPOINT    API endpoint
-    -h, --help        Show this help message
+    --model  MODEL       Model identifier  
+    --system PROMPT      System prompt
+    --api    ENDPOINT    API endpoint
+    -h, --help           Show this help message
 EOF
 }
 
-message_set=false
+fatal() {
+    exit_code=1
+    case "$1" in
+    -[0-9] | -[0-9][0-9] | -[0-9][0-9][0-9])
+        exit_code="$1"
+        shift
+        ;;
+    esac
 
+    printf '%s: [%s] %s\n' "${0##*/}" FATAL "$*" >&2
+    exit "$exit_code"
+}
+
+debug() {
+    [[ -v DEBUG ]] && printf '%s: [%s] %s\n' "${0##*/}" DEBUG "$*" >&2
+}
+
+# ------------
+# Environment
+# ------------
+
+# ** Defaults
+: "${FL_MESSAGE:="Hello ^-^, could you please tell me your name?"}"
+: "${FL_MODEL:="NousResearch/Hermes-3-Llama-3.1-8B"}"
+: "${FL_ENDPOINT:="v1/chat/completions"}"
+
+# Can be null
+: "${FL_SYSTEM="You are Dorothy, a warm, curious and accommodating agentic assistant."}"
+
+# ** Dependencies
+[[ -z "$FEATHERLESS_API_KEY" ]] &&
+    fatal "Undefined or null: FEATHERLESS_API_KEY"
+
+# TODO: Validate jq and curl available
+
+# ---------
+# Argparse
+# ---------
+
+message=""
 while (($#)); do
     case "$1" in
+    # Option requires value
     --model | --system | --api)
-        option="${1#--}"
+        [[ -z "$2" || "$2" == --* ]] &&
+            fatal "No value provided for --${1}"
 
-        if (($# < 2)) || [[ -z "$2" || "$2" == --* ]]; then
-            printf 'Missing value for %s\n' "$1" >&2
-            exit 2
-        fi
-
-        printf -v "$option" '%s' "$2"
+        printf -v "${1#--}" '%s' "$2"
         shift 2
         ;;
+    # Print usage and exit clean
     -h | --help)
         usage
         exit 0
         ;;
+    # Concatenate any remaining args as message
     --)
         shift
-        if (($# > 1)); then
-            printf 'Too many positional arguments\n' >&2
-            exit 2
-        fi
-        if (($# == 1)); then
-            message="$1"
-        fi
+        [[ -n "$*" ]] && message="$*"
         break
         ;;
     -*)
-        printf 'Unknown option: %s\n' "$1" >&2
-        exit 2
+        fatal "Unknown option: $1"
         ;;
     *)
-        if [[ "$message_set" == true ]]; then
-            printf 'Unexpected argument: %s\n' "$1" >&2
-            exit 2
-        fi
-        message="$1"
-        message_set=true
+        # Icbf with whitespace trimming
+        [[ -n "$1" ]] && message="$message $1"
         shift
         ;;
     esac
 done
 
-[[ -z "$FEATHERLESS_API_KEY" ]] && exit 4
+[[ -n "$message" ]] && FL_MESSAGE="$message"
 
+# --------
+# Request
+# --------
+
+# How can this provide for null system prompts?
 data="$(
     jq -n \
-        --arg model "$model" \
-        --arg system "$system" \
-        --arg message "$message" \
+        --arg model "$FL_MODEL" \
+        --arg system "$FL_SYSTEM" \
+        --arg message "$FL_MESSAGE" \
         '{
         model: $model,
         messages: [
@@ -93,20 +119,22 @@ data="$(
     }'
 )" || exit
 
+# Need to be noisy when DEBUG, silent otherwise
 response="$(
     curl "https://api.featherless.ai/$api" \
         --silent \
         --connect-timeout 10 \
-        --max-time 30 \
-        --retry 3 \
-        --retry-delay 2 \
-        --retry-connrefused \
+        --max-time 300 \
         --show-error \
         --fail-with-body \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $FEATHERLESS_API_KEY" \
         --data "$data"
-)"
+)" || exit
 
-printf '%s\n' "$response" >>"./log.jsonl"
-printf '%s\n' "$response" | jq --raw-output0 '.choices.[0].message.content'
+# Piping into tee --append doesn't follow with a newline
+printf '%s\n' "$response" >>"./response_log.jsonl"
+
+# Success: .choices.[0].message.content
+# Failure: .error.message
+printf '%s\n' "$response" | jq --raw-output0 '.choices.[0] | .message.content'
