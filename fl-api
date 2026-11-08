@@ -4,7 +4,7 @@
 
 #
 #
-# ~/scr/featherless/fl-api
+# :/fl-api
 #
 #
 
@@ -39,4 +39,4 @@ data="$(
 curl "https://api.featherless.ai/$api" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $FEATHERLESS_API_KEY" \
---data "$data")"
+    --data "$data"
